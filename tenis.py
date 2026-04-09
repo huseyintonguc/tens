@@ -57,11 +57,14 @@ def pusu_modu():
                 for hedef in HEDEF_SAATLER:
                     for option in options:
                         # Div'in class attribute'unda 'disabled' olup olmadığına bakıyoruz
-                        # Ayrıca text'in içinde hedef saat geçmeli
+                        # Ayrıca text'in (veya innerHTML) içinde hedef saat geçmeli
                         class_attr = option.get_attribute("class") or ""
-                        if hedef in option.text and "disabled" not in class_attr:
+                        inner_html = option.get_attribute("innerHTML") or ""
+                        if hedef in inner_html and "disabled" not in class_attr:
                             driver.execute_script("arguments[0].click();", option)
-                            print(f"Buldum! {option.text} seçiliyor...")
+                            # inner_html'den sadece saati al (örneğin "08:00")
+                            clean_time = inner_html.split("<")[0].strip()
+                            print(f"Buldum! {clean_time} seçiliyor...")
                             hedef_bulundu = True
                             secilen_saat = hedef
                             break
