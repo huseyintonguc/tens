@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 1. KULLANICI BİLGİLERİ VE AYARLAR ---
@@ -105,7 +107,15 @@ def pusu_modu():
                 driver.find_element(By.ID, "recaptcha-anchor").click()
 
                 print("Lütfen reCAPTCHA'nın yeşil tik olmasını bekleyin (veya gerekirse manuel çözün)")
-                time.sleep(4) # Yeşil tik için bekleme süresi
+
+                # Wait up to 120 seconds for the reCAPTCHA to be checked
+                try:
+                    WebDriverWait(driver, 120).until(
+                        lambda d: d.find_element(By.ID, "recaptcha-anchor").get_attribute("aria-checked") == "true"
+                    )
+                    print("reCAPTCHA doğrulandı!")
+                except Exception as e:
+                    print("reCAPTCHA doğrulama süresi doldu veya hata oluştu:", e)
 
                 driver.switch_to.default_content()
 
