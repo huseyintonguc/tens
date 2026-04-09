@@ -119,9 +119,9 @@ def pusu_modu():
 
                 driver.switch_to.default_content()
 
-                # ONAY BUTONU (Metin üzerinden bulma)
-                onay_butonu = driver.find_element(By.XPATH, "//*[contains(text(), 'Randevunuzu Onaylayın')]")
-                onay_butonu.click()
+                # ONAY BUTONU
+                onay_butonu = driver.find_element(By.ID, "submitBtn")
+                driver.execute_script("arguments[0].click();", onay_butonu)
 
                 print(f"BAŞARILI! {secilen_saat} için rezervasyon yapıldı.")
                 print("İşlem tamamlandı, bot durduruluyor...")
