@@ -20,6 +20,9 @@ PARTNER_KISI = {"tc": "48394037974", "ad": tr_upper("PINAR TONGUÇ"), "tel": "54
 # Takip edilecek saatler (Test için 08:00'i ekleyebilirsiniz)
 HEDEF_SAATLER = ["08:00"]
 
+# İstenen gün (Örn: "Çarşamba", "Perşembe", veya sadece "Bugün" için boş bırakın: "")
+ISTENEN_GUN = "Çarşamba"
+
 # --- 2. TARAYICI AYARLARI ---
 chrome_options = Options()
 # reCAPTCHA'da sorun yaşıyorsanız aşağıdaki satırın başındaki '#' işaretini kaldırıp
@@ -44,6 +47,35 @@ def pusu_modu():
 
             asıl = ASIL_KISI
             partner = PARTNER_KISI
+
+            # TARİH SEÇİMİ (Eğer istenen bir gün varsa)
+            if ISTENEN_GUN:
+                try:
+                    date_input = driver.find_element(By.ID, "dateInput")
+                    driver.execute_script("arguments[0].click();", date_input)
+                    time.sleep(1) # Seçeneklerin açılması için bekle
+
+                    date_options_div = driver.find_element(By.ID, "dateOptions")
+                    date_options = date_options_div.find_elements(By.TAG_NAME, "div")
+
+                    gun_bulundu = False
+                    for date_opt in date_options:
+                        inner_html = date_opt.get_attribute("innerHTML") or ""
+                        if ISTENEN_GUN.upper() in inner_html.upper():
+                            driver.execute_script("arguments[0].click();", date_opt)
+                            print(f"{ISTENEN_GUN} günü seçildi.")
+                            gun_bulundu = True
+                            time.sleep(1) # Seçimin algılanması ve saatlerin güncellenmesi için bekle
+                            break
+
+                    if not gun_bulundu:
+                        print(f"Henüz {ISTENEN_GUN} listelenmemiş... ({time.strftime('%H:%M:%S')})")
+                        time.sleep(25)
+                        driver.refresh()
+                        continue
+                except Exception as e:
+                    print(f"Tarih seçimi sırasında hata: {e}")
+                    pass
 
             # SAAT SEÇİMİ
             try:
