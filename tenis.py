@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 # --- 1. KULLANICI BİLGİLERİ VE AYARLAR ---
@@ -12,58 +14,98 @@ def tr_upper(text):
     return text.replace('i', 'İ').replace('ı', 'I').upper()
 
 # 4 KİŞİNİN BİLGİLERİNİ BURAYA YAZIN
-GRUP = [
-    {"tc": "53272681026", "ad": tr_upper("HÜSEYİN TONGUÇ"), "tel": "5532285951"}, # 1. Rezervasyon Asıl
-    {"tc": "48394037974", "ad": tr_upper("PINAR TONGUÇ"), "tel": "5461403467"}, # 1. Rezervasyon Partner
-    {"tc": "33333333330", "ad": tr_upper("Ayşe Kaya"), "tel": "5XXXXXXXXX"},    # 2. Rezervasyon Asıl
-    {"tc": "44444444440", "ad": tr_upper("Fatma Çelik"), "tel": "5XXXXXXXXX"}   # 2. Rezervasyon Partner
-]
+ASIL_KISI = {"tc": "53272681026", "ad": tr_upper("HÜSEYİN TONGUÇ"), "tel": "5532285951"}
+PARTNER_KISI = {"tc": "48394037974", "ad": tr_upper("PINAR TONGUÇ"), "tel": "5461403467"}
 
 # Takip edilecek saatler (Test için 08:00'i ekleyebilirsiniz)
-HEDEF_SAATLER = ["08:00"] 
+HEDEF_SAATLER = ["08:00"]
+
+# İstenen gün (Örn: "Çarşamba", "Perşembe", veya sadece "Bugün" için boş bırakın: "")
+ISTENEN_GUN = "Çarşamba"
 
 # --- 2. TARAYICI AYARLARI ---
-chrome_options = Options()
-# reCAPTCHA'da sorun yaşıyorsanız aşağıdaki satırın başındaki '#' işaretini kaldırıp 
-# kendi profil yolunuzu ekleyebilirsiniz.
-# chrome_options.add_argument(f"user-data-dir=C:\\Users\\KULLANICI_ADINIZ\\AppData\\Local\\Google\\Chrome\\User Data")
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
-alinanlar = []
+def create_driver():
+    chrome_options = Options()
+    # reCAPTCHA'da sorun yaşıyorsanız aşağıdaki satırın başındaki '#' işaretini kaldırıp
+    # kendi profil yolunuzu ekleyebilirsiniz.
+    # chrome_options.add_argument(f"user-data-dir=C:\\Users\\KULLANICI_ADINIZ\\AppData\\Local\\Google\\Chrome\\User Data")
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 def pusu_modu():
     print(f"{'='*30}\nBOT BASLATILDI\nHEDEF: {HEDEF_SAATLER}\n{'='*30}")
-    
-    while len(alinanlar) < 2:
+
+    driver = create_driver()
+
+    while True:
         try:
             driver.get("https://kultursanat.silivri.bel.tr/tenis-kortu")
             time.sleep(3) # Sayfanın yüklenmesini bekle
 
-            # Hangi grubu kullanacağız? (İlk rezervasyon için 0-1, ikinci için 2-3)
-            idx = 0 if len(alinanlar) == 0 else 2
-            asıl = GRUP[idx]
-            partner = GRUP[idx+1]
+            # Varsa SweetAlert (Swal) popup'larını kapat (Örn: "Seans bulunamadı")
+            try:
+                driver.execute_script("if(typeof Swal !== 'undefined') { Swal.close(); }")
+            except:
+                pass
+
+            asıl = ASIL_KISI
+            partner = PARTNER_KISI
+
+            # TARİH SEÇİMİ (Eğer istenen bir gün varsa)
+            if ISTENEN_GUN:
+                try:
+                    date_input = driver.find_element(By.ID, "dateInput")
+                    driver.execute_script("arguments[0].click();", date_input)
+                    time.sleep(1) # Seçeneklerin açılması için bekle
+
+                    date_options_div = driver.find_element(By.ID, "dateOptions")
+                    date_options = date_options_div.find_elements(By.TAG_NAME, "div")
+
+                    gun_bulundu = False
+                    for date_opt in date_options:
+                        inner_html = date_opt.get_attribute("innerHTML") or ""
+                        if ISTENEN_GUN.upper() in inner_html.upper():
+                            driver.execute_script("arguments[0].click();", date_opt)
+                            print(f"{ISTENEN_GUN} günü seçildi.")
+                            gun_bulundu = True
+                            time.sleep(1) # Seçimin algılanması ve saatlerin güncellenmesi için bekle
+                            break
+
+                    if not gun_bulundu:
+                        print(f"Henüz {ISTENEN_GUN} listelenmemiş... ({time.strftime('%H:%M:%S')})")
+                        time.sleep(25)
+                        driver.refresh()
+                        continue
+                except Exception as e:
+                    print(f"Tarih seçimi sırasında hata: {e}")
+                    pass
 
             # SAAT SEÇİMİ
             try:
-                # Sayfadaki saat dropdown'ını bul
-                select_element = driver.find_element(By.TAG_NAME, "select")
-                saat_listesi = Select(select_element)
-                
+                # Yeni div tabanlı dropdown'ı aç
+                time_input = driver.find_element(By.ID, "timeInput")
+                driver.execute_script("arguments[0].click();", time_input)
+                time.sleep(1) # Seçeneklerin açılması için kısa bekleme
+
                 hedef_bulundu = False
+                time_options = driver.find_element(By.ID, "timeOptions")
+                options = time_options.find_elements(By.TAG_NAME, "div")
+
                 for hedef in HEDEF_SAATLER:
-                    if hedef in alinanlar: continue
-                    
-                    for option in saat_listesi.options:
-                        # Saati ve DOLU olmadığını kontrol et
-                        if hedef in option.text and "(DOLU)" not in option.text:
-                            saat_listesi.select_by_visible_text(option.text)
-                            print(f"Buldum! {option.text} seçiliyor...")
+                    for option in options:
+                        # Div'in class attribute'unda 'disabled' olup olmadığına bakıyoruz
+                        # Ayrıca text'in (veya innerHTML) içinde hedef saat geçmeli
+                        class_attr = option.get_attribute("class") or ""
+                        inner_html = option.get_attribute("innerHTML") or ""
+                        if hedef in inner_html and "disabled" not in class_attr:
+                            driver.execute_script("arguments[0].click();", option)
+                            # inner_html'den sadece saati al (örneğin "08:00")
+                            clean_time = inner_html.split("<")[0].strip()
+                            print(f"Buldum! {clean_time} seçiliyor...")
                             hedef_bulundu = True
                             secilen_saat = hedef
                             break
                     if hedef_bulundu: break
-                
+
                 if not hedef_bulundu:
                     print(f"Henüz boşluk yok... ({time.strftime('%H:%M:%S')})")
                     time.sleep(25) # 25 saniye bekle ve yenile
@@ -76,16 +118,18 @@ def pusu_modu():
                 driver.find_element(By.ID, "tc1").send_keys(asıl["tc"])
                 driver.find_element(By.ID, "name1").clear()
                 driver.find_element(By.ID, "name1").send_keys(asıl["ad"])
-                
-                # Telefon (tel1 veya input type=tel üzerinden)
-                try:
-                    driver.find_element(By.ID, "tel1").send_keys(asıl["tel"])
-                except:
-                    driver.find_element(By.XPATH, "//input[@type='tel']").send_keys(asıl["tel"])
+
+                # 1. Kişi Telefon
+                driver.find_element(By.ID, "phone1").clear()
+                driver.find_element(By.ID, "phone1").send_keys(asıl["tel"])
 
                 # 2. Kişi (Partner)
+                driver.find_element(By.ID, "tc2").clear()
                 driver.find_element(By.ID, "tc2").send_keys(partner["tc"])
+                driver.find_element(By.ID, "name2").clear()
                 driver.find_element(By.ID, "name2").send_keys(partner["ad"])
+                driver.find_element(By.ID, "phone2").clear()
+                driver.find_element(By.ID, "phone2").send_keys(partner["tel"])
 
                 print("Form dolduruldu. reCAPTCHA bekleniyor...")
 
@@ -95,29 +139,46 @@ def pusu_modu():
                 frames = driver.find_elements(By.TAG_NAME, "iframe")
                 driver.switch_to.frame(frames[0])
                 driver.find_element(By.ID, "recaptcha-anchor").click()
-                
+
                 print("Lütfen reCAPTCHA'nın yeşil tik olmasını bekleyin (veya gerekirse manuel çözün)")
-                time.sleep(4) # Yeşil tik için bekleme süresi
-                
+
+                # Wait up to 120 seconds for the reCAPTCHA to be checked
+                try:
+                    WebDriverWait(driver, 120).until(
+                        lambda d: d.find_element(By.ID, "recaptcha-anchor").get_attribute("aria-checked") == "true"
+                    )
+                    print("reCAPTCHA doğrulandı!")
+                except Exception as e:
+                    print("reCAPTCHA doğrulama süresi doldu veya hata oluştu:", e)
+
                 driver.switch_to.default_content()
 
-                # ONAY BUTONU (Metin üzerinden bulma)
-                onay_butonu = driver.find_element(By.XPATH, "//*[contains(text(), 'Randevunuzu Onaylayın')]")
-                onay_butonu.click()
-                
+                # ONAY BUTONU
+                onay_butonu = driver.find_element(By.ID, "submitBtn")
+                driver.execute_script("arguments[0].click();", onay_butonu)
+
                 print(f"BAŞARILI! {secilen_saat} için rezervasyon yapıldı.")
-                alinanlar.append(secilen_saat)
-                
-                if len(alinanlar) < 2:
-                    print("İkinci saat için 10 saniye sonra tekrar başlanıyor...")
-                    time.sleep(10)
-                
+                print("İşlem tamamlandı, bot durduruluyor...")
+                break
+
             except Exception as sub_e:
                 print(f"İşlem sırasında hata: {sub_e}")
                 time.sleep(5)
 
         except Exception as e:
+            error_msg = str(e).lower()
             print(f"Ana döngüde bir hata oluştu: {e}")
+
+            # Eğer tarayıcı kapandıysa veya çöktüyse (invalid session id veya disconnected)
+            if "invalid session id" in error_msg or "disconnected" in error_msg or "chrome not reachable" in error_msg:
+                print("Tarayıcı bağlantısı koptu! Yeni bir tarayıcı başlatılıyor...")
+                try:
+                    driver.quit()
+                except:
+                    pass
+                time.sleep(2)
+                driver = create_driver()
+
             time.sleep(5)
 
 if __name__ == "__main__":
