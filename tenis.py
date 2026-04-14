@@ -24,15 +24,17 @@ HEDEF_SAATLER = ["08:00"]
 ISTENEN_GUN = "Çarşamba"
 
 # --- 2. TARAYICI AYARLARI ---
-chrome_options = Options()
-# reCAPTCHA'da sorun yaşıyorsanız aşağıdaki satırın başındaki '#' işaretini kaldırıp
-# kendi profil yolunuzu ekleyebilirsiniz.
-# chrome_options.add_argument(f"user-data-dir=C:\\Users\\KULLANICI_ADINIZ\\AppData\\Local\\Google\\Chrome\\User Data")
-
-driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+def create_driver():
+    chrome_options = Options()
+    # reCAPTCHA'da sorun yaşıyorsanız aşağıdaki satırın başındaki '#' işaretini kaldırıp
+    # kendi profil yolunuzu ekleyebilirsiniz.
+    # chrome_options.add_argument(f"user-data-dir=C:\\Users\\KULLANICI_ADINIZ\\AppData\\Local\\Google\\Chrome\\User Data")
+    return webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
 
 def pusu_modu():
     print(f"{'='*30}\nBOT BASLATILDI\nHEDEF: {HEDEF_SAATLER}\n{'='*30}")
+
+    driver = create_driver()
 
     while True:
         try:
@@ -164,7 +166,19 @@ def pusu_modu():
                 time.sleep(5)
 
         except Exception as e:
+            error_msg = str(e).lower()
             print(f"Ana döngüde bir hata oluştu: {e}")
+
+            # Eğer tarayıcı kapandıysa veya çöktüyse (invalid session id veya disconnected)
+            if "invalid session id" in error_msg or "disconnected" in error_msg or "chrome not reachable" in error_msg:
+                print("Tarayıcı bağlantısı koptu! Yeni bir tarayıcı başlatılıyor...")
+                try:
+                    driver.quit()
+                except:
+                    pass
+                time.sleep(2)
+                driver = create_driver()
+
             time.sleep(5)
 
 if __name__ == "__main__":
